@@ -277,7 +277,7 @@ Return ONLY valid JSON (no markdown, no explanations) in this exact format:
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4o-mini',  // Changed to gpt-4o-mini for better quality at low cost
       messages: [
         {
           role: 'system',
