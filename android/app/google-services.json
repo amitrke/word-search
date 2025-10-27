@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "328692582403",
+    "project_id": "word-search-25",
+    "storage_bucket": "word-search-25.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:328692582403:android:4c467ce68bb486f2046636",
+        "android_client_info": {
+          "package_name": "com.example.word_search"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_UV9Br1xk46U4d1xWLvwDfJ4EBgE7xRg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:328692582403:android:9d775ecff45eb8c5046636",
+        "android_client_info": {
+          "package_name": "com.subnext.wordsearch"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_UV9Br1xk46U4d1xWLvwDfJ4EBgE7xRg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
