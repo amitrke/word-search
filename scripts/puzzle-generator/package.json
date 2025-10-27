@@ -1,0 +1,23 @@
+{
+  "name": "word-search-puzzle-generator",
+  "version": "1.0.0",
+  "description": "Generate word search puzzles using ChatGPT and store in Firebase",
+  "main": "generate-puzzles.js",
+  "scripts": {
+    "generate": "node generate-puzzles.js",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "word-search",
+    "puzzle",
+    "generator",
+    "chatgpt",
+    "firebase"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "openai": "^4.20.0"
+  }
+}

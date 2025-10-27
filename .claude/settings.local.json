@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(move REQUIREMENTS.md docs )",
+      "Bash(move TECHNICAL_SETUP.md docs)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

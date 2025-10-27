@@ -1,0 +1,69 @@
+name: Generate Word Search Puzzles
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+  workflow_dispatch:
+    # Allow manual trigger
+    inputs:
+      puzzle_count:
+        description: 'Number of puzzles to generate'
+        required: false
+        default: '14'
+      theme:
+        description: 'Specific theme (leave empty for all themes)'
+        required: false
+        default: ''
+      force_generate:
+        description: 'Force generation (ignore inventory checks)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  generate-puzzles:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: scripts/puzzle-generator/package-lock.json
+
+      - name: Install dependencies
+        working-directory: scripts/puzzle-generator
+        run: npm ci
+
+      - name: Generate puzzles
+        working-directory: scripts/puzzle-generator
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PUZZLE_COUNT: ${{ github.event.inputs.puzzle_count || '14' }}
+          THEME_FILTER: ${{ github.event.inputs.theme || '' }}
+          FORCE_GENERATE: ${{ github.event.inputs.force_generate || 'false' }}
+          # Inventory management configuration
+          MIN_PUZZLES: '30'           # Minimum total puzzles to maintain
+          MAX_PUZZLES: '200'          # Maximum total puzzles (stop if reached)
+          MIN_CONSUMPTION_RATE: '20'  # Only generate if >20% of puzzles have been played
+          MIN_PER_DIFFICULTY: '8'     # Minimum puzzles per difficulty level
+          MIN_PER_THEME: '3'          # Minimum puzzles per theme
+        run: node generate-puzzles.js
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generation-logs-${{ github.run_number }}
+          path: scripts/puzzle-generator/*.log
+          retention-days: 7
