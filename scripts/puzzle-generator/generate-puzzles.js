@@ -424,12 +424,15 @@ async function generatePuzzle(openai, theme, difficulty) {
   const gridSize = GRID_SIZES[difficulty];
   const { grid, placedWords } = placeWordsInGrid(words, gridSize);
 
+  // Convert 2D grid to array of strings (Firestore doesn't support nested arrays)
+  const gridStrings = grid.map(row => row.join(''));
+
   // Create puzzle object
   const puzzle = {
     theme,
     difficulty,
     gridSize,
-    grid,
+    grid: gridStrings,  // Array of strings instead of 2D array
     words: placedWords.map((w, i) => ({
       word: w.word,
       startRow: w.startRow,
