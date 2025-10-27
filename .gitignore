@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Node.js dependencies (for puzzle generator)
+node_modules/
+**/node_modules/
+
+# Puzzle generator logs
+scripts/puzzle-generator/*.log
+scripts/puzzle-generator/generation-log.json
