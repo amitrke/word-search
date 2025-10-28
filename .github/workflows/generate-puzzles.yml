@@ -11,9 +11,13 @@ on:
       puzzle_count:
         description: 'Number of puzzles to generate'
         required: false
-        default: '14'
+        default: '30'
       theme:
         description: 'Specific theme (leave empty for all themes)'
+        required: false
+        default: ''
+      level_filter:
+        description: 'Level range (e.g., "1-5" for levels 1-5, or "1" for level 1, or empty for all)'
         required: false
         default: ''
       force_generate:
@@ -49,15 +53,16 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          PUZZLE_COUNT: ${{ github.event.inputs.puzzle_count || '14' }}
+          PUZZLE_COUNT: ${{ github.event.inputs.puzzle_count || '30' }}
           THEME_FILTER: ${{ github.event.inputs.theme || '' }}
+          LEVEL_FILTER: ${{ github.event.inputs.level_filter || '' }}
           FORCE_GENERATE: ${{ github.event.inputs.force_generate || 'false' }}
           # Inventory management configuration
-          MIN_PUZZLES: '30'           # Minimum total puzzles to maintain
-          MAX_PUZZLES: '200'          # Maximum total puzzles (stop if reached)
+          MIN_PUZZLES: '60'           # Minimum total puzzles to maintain (2 per level minimum)
+          MAX_PUZZLES: '300'          # Maximum total puzzles (stop if reached) (10 per level)
           MIN_CONSUMPTION_RATE: '20'  # Only generate if >20% of puzzles have been played
-          MIN_PER_DIFFICULTY: '8'     # Minimum puzzles per difficulty level
-          MIN_PER_THEME: '3'          # Minimum puzzles per theme
+          MIN_PER_DIFFICULTY: '20'    # Minimum puzzles per difficulty level
+          MIN_PER_THEME: '10'         # Minimum puzzles per theme (at least 1 per 3 levels)
         run: node generate-puzzles.js
 
       - name: Upload logs

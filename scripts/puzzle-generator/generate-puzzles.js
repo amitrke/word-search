@@ -11,19 +11,53 @@ const THEMES = [
   'Music', 'Nature', 'Movies', 'Science', 'History'
 ];
 
+// Level-based configuration (30 levels)
+const LEVEL_CONFIG = [
+  // Levels 1-5: Beginner (5x5 to 7x7, horizontal/vertical only)
+  { level: 1, gridSize: 5, minWords: 3, maxWords: 4, difficulty: 'simple', directions: ['horizontal', 'vertical'] },
+  { level: 2, gridSize: 5, minWords: 4, maxWords: 5, difficulty: 'simple', directions: ['horizontal', 'vertical'] },
+  { level: 3, gridSize: 6, minWords: 4, maxWords: 5, difficulty: 'simple', directions: ['horizontal', 'vertical'] },
+  { level: 4, gridSize: 6, minWords: 5, maxWords: 6, difficulty: 'simple', directions: ['horizontal', 'vertical'] },
+  { level: 5, gridSize: 7, minWords: 5, maxWords: 6, difficulty: 'simple', directions: ['horizontal', 'vertical'] },
+
+  // Levels 6-10: Easy (8x8, add diagonals)
+  { level: 6, gridSize: 8, minWords: 6, maxWords: 7, difficulty: 'simple', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 7, gridSize: 8, minWords: 6, maxWords: 8, difficulty: 'simple', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 8, gridSize: 8, minWords: 7, maxWords: 8, difficulty: 'simple', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 9, gridSize: 8, minWords: 7, maxWords: 9, difficulty: 'simple', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 10, gridSize: 8, minWords: 8, maxWords: 10, difficulty: 'simple', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+
+  // Levels 11-15: Medium (10x10)
+  { level: 11, gridSize: 10, minWords: 8, maxWords: 10, difficulty: 'medium', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 12, gridSize: 10, minWords: 9, maxWords: 11, difficulty: 'medium', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 13, gridSize: 10, minWords: 10, maxWords: 12, difficulty: 'medium', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 14, gridSize: 10, minWords: 10, maxWords: 12, difficulty: 'medium', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 15, gridSize: 10, minWords: 11, maxWords: 13, difficulty: 'medium', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+
+  // Levels 16-20: Hard (12x12)
+  { level: 16, gridSize: 12, minWords: 10, maxWords: 12, difficulty: 'hard', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 17, gridSize: 12, minWords: 11, maxWords: 13, difficulty: 'hard', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 18, gridSize: 12, minWords: 12, maxWords: 14, difficulty: 'hard', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 19, gridSize: 12, minWords: 13, maxWords: 15, difficulty: 'hard', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 20, gridSize: 12, minWords: 14, maxWords: 16, difficulty: 'hard', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+
+  // Levels 21-25: Very Hard (15x15)
+  { level: 21, gridSize: 15, minWords: 12, maxWords: 15, difficulty: 'hard', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 22, gridSize: 15, minWords: 13, maxWords: 16, difficulty: 'hard', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 23, gridSize: 15, minWords: 14, maxWords: 17, difficulty: 'hard', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 24, gridSize: 15, minWords: 15, maxWords: 18, difficulty: 'hard', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 25, gridSize: 15, minWords: 16, maxWords: 19, difficulty: 'hard', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+
+  // Levels 26-30: Expert (15x15, maximum difficulty)
+  { level: 26, gridSize: 15, minWords: 16, maxWords: 19, difficulty: 'hard', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 27, gridSize: 15, minWords: 17, maxWords: 20, difficulty: 'hard', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 28, gridSize: 15, minWords: 18, maxWords: 21, difficulty: 'hard', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 29, gridSize: 15, minWords: 19, maxWords: 22, difficulty: 'hard', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 30, gridSize: 15, minWords: 20, maxWords: 23, difficulty: 'hard', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+];
+
+// Backwards compatibility
 const DIFFICULTIES = ['simple', 'medium', 'hard'];
-
-const GRID_SIZES = {
-  simple: 8,
-  medium: 12,
-  hard: 15
-};
-
-const WORD_COUNTS = {
-  simple: { min: 5, max: 8 },
-  medium: { min: 10, max: 15 },
-  hard: { min: 15, max: 20 }
-};
 
 const DIRECTIONS = [
   { dr: 0, dc: 1, name: 'horizontal' },      // →
@@ -241,9 +275,8 @@ function shouldGeneratePuzzles(inventory, config) {
 // AI WORD GENERATION
 // ============================================
 
-async function generateWordList(openai, theme, difficulty) {
-  const params = WORD_COUNTS[difficulty];
-  const wordCount = Math.floor(Math.random() * (params.max - params.min + 1)) + params.min;
+async function generateWordList(openai, theme, levelConfig) {
+  const wordCount = Math.floor(Math.random() * (levelConfig.maxWords - levelConfig.minWords + 1)) + levelConfig.minWords;
 
   const difficultyGuidance = {
     simple: 'common, everyday words that are easy to recognize',
@@ -254,7 +287,8 @@ async function generateWordList(openai, theme, difficulty) {
   const prompt = `Generate a word search puzzle with the following specifications:
 
 Theme: ${theme}
-Difficulty: ${difficulty}
+Level: ${levelConfig.level} (${levelConfig.difficulty} difficulty)
+Grid Size: ${levelConfig.gridSize}x${levelConfig.gridSize}
 Number of words: ${wordCount}
 
 Requirements:
@@ -263,10 +297,10 @@ Requirements:
 3. Words should be:
    - Appropriate for all ages
    - Clearly related to the theme
-   - Varied in length (3-12 letters)
+   - Varied in length (3-${Math.min(12, levelConfig.gridSize)} letters)
    - Single words (no spaces or hyphens)
    - English language
-   - ${difficultyGuidance[difficulty]}
+   - ${difficultyGuidance[levelConfig.difficulty]}
 4. Ensure diversity in word choices
 
 Return ONLY valid JSON (no markdown, no explanations) in this exact format:
@@ -277,7 +311,7 @@ Return ONLY valid JSON (no markdown, no explanations) in this exact format:
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',  // Changed to gpt-4o-mini for better quality at low cost
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
@@ -322,7 +356,7 @@ Return ONLY valid JSON (no markdown, no explanations) in this exact format:
     data.words = validIndices.map(i => data.words[i]);
     data.hints = validIndices.map(i => data.hints[i]);
 
-    console.log(`  Generated ${data.words.length} words for ${theme} (${difficulty})`);
+    console.log(`  Generated ${data.words.length} words for ${theme} (Level ${levelConfig.level})`);
     return data;
 
   } catch (error) {
@@ -360,12 +394,18 @@ function placeWord(grid, word, row, col, dir) {
   }
 }
 
-function placeWordsInGrid(words, gridSize) {
+function placeWordsInGrid(words, levelConfig) {
+  const gridSize = levelConfig.gridSize;
   const grid = Array(gridSize).fill(null).map(() =>
     Array(gridSize).fill('')
   );
 
   const placedWords = [];
+
+  // Filter directions based on level config
+  const allowedDirections = DIRECTIONS.filter(dir =>
+    levelConfig.directions.includes(dir.name)
+  );
 
   // Sort by length (longest first for better placement)
   const sortedWords = [...words].sort((a, b) => b.length - a.length);
@@ -378,7 +418,7 @@ function placeWordsInGrid(words, gridSize) {
     while (!placed && attempts < maxAttempts) {
       const row = Math.floor(Math.random() * gridSize);
       const col = Math.floor(Math.random() * gridSize);
-      const dir = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
+      const dir = allowedDirections[Math.floor(Math.random() * allowedDirections.length)];
 
       if (canPlaceWord(grid, word, row, col, dir, gridSize)) {
         placeWord(grid, word, row, col, dir);
@@ -416,13 +456,12 @@ function placeWordsInGrid(words, gridSize) {
 // PUZZLE GENERATION
 // ============================================
 
-async function generatePuzzle(openai, theme, difficulty) {
+async function generatePuzzle(openai, theme, levelConfig) {
   // Get words from ChatGPT
-  const { words, hints } = await generateWordList(openai, theme, difficulty);
+  const { words, hints } = await generateWordList(openai, theme, levelConfig);
 
   // Place in grid
-  const gridSize = GRID_SIZES[difficulty];
-  const { grid, placedWords } = placeWordsInGrid(words, gridSize);
+  const { grid, placedWords } = placeWordsInGrid(words, levelConfig);
 
   // Convert 2D grid to array of strings (Firestore doesn't support nested arrays)
   const gridStrings = grid.map(row => row.join(''));
@@ -430,8 +469,9 @@ async function generatePuzzle(openai, theme, difficulty) {
   // Create puzzle object
   const puzzle = {
     theme,
-    difficulty,
-    gridSize,
+    difficulty: levelConfig.difficulty,  // For backward compatibility
+    level: levelConfig.level,            // New level field
+    gridSize: levelConfig.gridSize,
     grid: gridStrings,  // Array of strings instead of 2D array
     words: placedWords.map((w, i) => ({
       word: w.word,
@@ -446,8 +486,8 @@ async function generatePuzzle(openai, theme, difficulty) {
     popularity: 0,
     completionCount: 0,
     averageCompletionTime: 0,
-    tags: [theme.toLowerCase(), difficulty],
-    version: '1.0'
+    tags: [theme.toLowerCase(), levelConfig.difficulty, `level${levelConfig.level}`],
+    version: '2.0'  // Updated version for level-based system
   };
 
   return puzzle;
@@ -512,45 +552,59 @@ async function main() {
     }
 
     // Get configuration from environment or decision
-    const puzzleCount = decision.targetCount || parseInt(process.env.PUZZLE_COUNT || '14');
+    const puzzleCount = decision.targetCount || parseInt(process.env.PUZZLE_COUNT || '30');
     const themeFilter = process.env.THEME_FILTER || '';
+    const levelFilter = process.env.LEVEL_FILTER || ''; // e.g., "1-5" for levels 1-5
 
     const themes = decision.focusThemes || (themeFilter ? [themeFilter] : THEMES);
-    const difficulties = decision.focusDifficulties || DIFFICULTIES;
+
+    // Parse level filter (e.g., "1-5" or "10" or empty for all)
+    let targetLevels = LEVEL_CONFIG;
+    if (levelFilter) {
+      if (levelFilter.includes('-')) {
+        const [start, end] = levelFilter.split('-').map(Number);
+        targetLevels = LEVEL_CONFIG.filter(lc => lc.level >= start && lc.level <= end);
+      } else {
+        const level = parseInt(levelFilter);
+        targetLevels = LEVEL_CONFIG.filter(lc => lc.level === level);
+      }
+    }
 
     console.log(`\nConfiguration:`);
     console.log(`  Target puzzles: ${puzzleCount}`);
     console.log(`  Themes: ${themes.join(', ')}`);
-    console.log(`  Difficulties: ${difficulties.join(', ')}`);
+    console.log(`  Levels: ${targetLevels.map(l => l.level).join(', ')}`);
     console.log(`  Reason: ${decision.reason}\n`);
 
-    // Calculate puzzles per theme/difficulty
-    const combinations = themes.length * difficulties.length;
-    const puzzlesPerCombo = Math.ceil(puzzleCount / combinations);
+    // Calculate puzzles per theme/level
+    const combinations = themes.length * targetLevels.length;
+    const puzzlesPerCombo = Math.max(1, Math.ceil(puzzleCount / combinations));
 
-    console.log(`Generating ${puzzlesPerCombo} puzzle(s) per theme/difficulty combination\n`);
+    console.log(`Generating ${puzzlesPerCombo} puzzle(s) per theme/level combination\n`);
 
     let successCount = 0;
     let errorCount = 0;
 
     // Generate puzzles
     for (const theme of themes) {
-      for (const difficulty of difficulties) {
+      for (const levelConfig of targetLevels) {
         for (let i = 0; i < puzzlesPerCombo; i++) {
           try {
-            console.log(`[${successCount + errorCount + 1}/${puzzleCount}] ${theme} - ${difficulty}...`);
+            console.log(`[${successCount + errorCount + 1}/${puzzleCount}] ${theme} - Level ${levelConfig.level}...`);
 
-            const puzzle = await generatePuzzle(openai, theme, difficulty);
+            const puzzle = await generatePuzzle(openai, theme, levelConfig);
             const docRef = await db.collection('puzzles').add(puzzle);
 
             console.log(`  ✓ Saved to Firestore: ${docRef.id}`);
+            console.log(`  ✓ Grid: ${levelConfig.gridSize}x${levelConfig.gridSize}`);
             console.log(`  ✓ Words placed: ${puzzle.words.length}\n`);
 
             successCount++;
             logEntries.push({
               success: true,
               theme,
-              difficulty,
+              level: levelConfig.level,
+              difficulty: levelConfig.difficulty,
               puzzleId: docRef.id,
               wordCount: puzzle.words.length
             });
@@ -564,7 +618,7 @@ async function main() {
             logEntries.push({
               success: false,
               theme,
-              difficulty,
+              level: levelConfig.level,
               error: error.message
             });
           }

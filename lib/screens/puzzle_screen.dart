@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/puzzle.dart';
+import '../models/user_profile.dart';
+import '../providers/auth_provider.dart';
+import '../providers/user_progress_provider.dart';
+import '../widgets/word_line_painter.dart';
+import '../widgets/selection_line_painter.dart';
 
 class PuzzleScreen extends StatefulWidget {
   final Puzzle puzzle;
+  final int levelNumber;
 
-  const PuzzleScreen({super.key, required this.puzzle});
+  const PuzzleScreen({
+    super.key,
+    required this.puzzle,
+    required this.levelNumber,
+  });
 
   @override
   State<PuzzleScreen> createState() => _PuzzleScreenState();
@@ -12,10 +23,70 @@ class PuzzleScreen extends StatefulWidget {
 
 class _PuzzleScreenState extends State<PuzzleScreen> {
   final Set<String> foundWords = {};
+  final Map<String, List<Map<String, int>>> foundWordPaths = {}; // Store paths for drawing lines
   final Set<String> selectedCells = {};
   final List<Map<String, int>> selectedPath = [];
   bool isDragging = false;
-  Map<String, int>? selectionDirection;
+  Map<String, int>? _dragStartCell; // Store the starting cell of drag
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProgress();
+  }
+
+  Future<void> _loadProgress() async {
+    final progressProvider =
+        Provider.of<UserProgressProvider>(context, listen: false);
+    final progress = await progressProvider.loadPuzzleProgress(widget.puzzle.id);
+
+    if (progress != null && mounted) {
+      setState(() {
+        foundWords.addAll(progress.foundWords);
+        // Reconstruct paths for found words
+        for (final word in progress.foundWords) {
+          _reconstructWordPath(word);
+        }
+      });
+    }
+  }
+
+  void _reconstructWordPath(String word) {
+    // Find the word in puzzle words
+    final puzzleWord = widget.puzzle.words.firstWhere(
+      (w) => w.word.toUpperCase() == word.toUpperCase(),
+      orElse: () => widget.puzzle.words.first,
+    );
+
+    // Build the path based on start position and direction
+    final path = <Map<String, int>>[];
+    int row = puzzleWord.startRow;
+    int col = puzzleWord.startCol;
+
+    for (int i = 0; i < puzzleWord.word.length; i++) {
+      path.add({'row': row, 'col': col});
+
+      // Move to next position based on direction
+      switch (puzzleWord.direction) {
+        case 'horizontal':
+          col++;
+          break;
+        case 'vertical':
+          row++;
+          break;
+        case 'diagonal-down':
+          row++;
+          col++;
+          break;
+        case 'diagonal-up':
+          row++;
+          col--;
+          break;
+      }
+    }
+
+    foundWordPaths[word] = path;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,9 +95,9 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.puzzle.theme),
+            Text('Level ${widget.levelNumber} - ${widget.puzzle.theme}'),
             Text(
-              '${widget.puzzle.difficulty.toUpperCase()} • ${foundWords.length}/${widget.puzzle.words.length} words',
+              '${widget.puzzle.gridSize}×${widget.puzzle.gridSize} • ${foundWords.length}/${widget.puzzle.words.length} words',
               style: const TextStyle(fontSize: 14),
             ),
           ],
@@ -61,22 +132,34 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
 
     return GestureDetector(
       onPanStart: (details) {
-        setState(() {
-          isDragging = true;
-          selectedCells.clear();
-          selectedPath.clear();
-          selectionDirection = null;
-        });
-        _handleCellSelection(details.localPosition, cellSize);
+        final row = (details.localPosition.dy / cellSize).floor();
+        final col = (details.localPosition.dx / cellSize).floor();
+
+        if (row >= 0 && row < widget.puzzle.gridSize &&
+            col >= 0 && col < widget.puzzle.gridSize) {
+          setState(() {
+            isDragging = true;
+            _dragStartCell = {'row': row, 'col': col};
+            selectedCells.clear();
+            selectedPath.clear();
+
+            // Add start cell
+            selectedCells.add('$row,$col');
+            selectedPath.add({'row': row, 'col': col});
+          });
+        }
       },
       onPanUpdate: (details) {
-        if (isDragging) {
-          _handleCellSelection(details.localPosition, cellSize);
+        if (isDragging && _dragStartCell != null) {
+          setState(() {
+            _updateSelectionAlongLine(details.localPosition, cellSize);
+          });
         }
       },
       onPanEnd: (details) {
         setState(() {
           isDragging = false;
+          _dragStartCell = null;
         });
         _checkSelectedWord();
       },
@@ -86,42 +169,70 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
           borderRadius: BorderRadius.circular(12),
           color: Colors.white,
         ),
-        child: AspectRatio(
-          aspectRatio: 1,
-          child: GridView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: widget.puzzle.gridSize,
-            ),
-            itemCount: widget.puzzle.gridSize * widget.puzzle.gridSize,
-            itemBuilder: (context, index) {
-              final row = index ~/ widget.puzzle.gridSize;
-              final col = index % widget.puzzle.gridSize;
-              final letter = grid2D[row][col];
-              final cellKey = '$row,$col';
-              final isSelected = selectedCells.contains(cellKey);
-
-              return Container(
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Colors.grey[200]!,
-                    width: 0.5,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: Stack(
+              children: [
+                // Grid
+                GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: widget.puzzle.gridSize,
                   ),
-                  color: isSelected ? Colors.blue[100] : Colors.white,
+                  itemCount: widget.puzzle.gridSize * widget.puzzle.gridSize,
+                  itemBuilder: (context, index) {
+                    final row = index ~/ widget.puzzle.gridSize;
+                    final col = index % widget.puzzle.gridSize;
+                    final letter = grid2D[row][col];
+                    final cellKey = '$row,$col';
+                    final isSelected = selectedCells.contains(cellKey);
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: Colors.grey[200]!,
+                          width: 0.5,
+                        ),
+                        color: isSelected ? Colors.blue[100] : Colors.white,
+                      ),
+                      child: Center(
+                        child: Text(
+                          letter,
+                          style: TextStyle(
+                            fontSize: cellSize * 0.5,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected ? Colors.blue[900] : Colors.black87,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-                child: Center(
-                  child: Text(
-                    letter,
-                    style: TextStyle(
-                      fontSize: cellSize * 0.5,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? Colors.blue[900] : Colors.black87,
+                // Line overlay for found words
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: WordLinePainter(
+                      foundWordPaths: foundWordPaths,
+                      cellSize: cellSize,
+                      gridSize: widget.puzzle.gridSize,
                     ),
                   ),
                 ),
-              );
-            },
+                // Selection line overlay
+                if (isDragging && selectedPath.isNotEmpty)
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: SelectionLinePainter(
+                        selectedPath: selectedPath,
+                        cellSize: cellSize,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -312,64 +423,73 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
     );
   }
 
-  void _handleCellSelection(Offset position, double cellSize) {
-    final row = (position.dy / cellSize).floor();
-    final col = (position.dx / cellSize).floor();
+  void _updateSelectionAlongLine(Offset currentPosition, double cellSize) {
+    if (_dragStartCell == null) return;
 
-    // Check if the position is within bounds
-    if (row < 0 || row >= widget.puzzle.gridSize || 
-        col < 0 || col >= widget.puzzle.gridSize) {
-      return;
-    }
+    // Get current cell
+    final currentRow = (currentPosition.dy / cellSize).floor();
+    final currentCol = (currentPosition.dx / cellSize).floor();
 
-    final cellKey = '$row,$col';
-    
-    // If this is a new cell
-    if (!selectedCells.contains(cellKey)) {
-      if (selectedPath.isEmpty) {
-        // First cell - just add it
-        setState(() {
-          selectedCells.add(cellKey);
-          selectedPath.add({'row': row, 'col': col});
-        });
-      } else if (selectedPath.length == 1) {
-        // Second cell - establish direction
-        final lastCell = selectedPath.last;
-        if (_isAdjacent(lastCell, {'row': row, 'col': col})) {
-          setState(() {
-            selectionDirection = {
-              'rowDelta': row - lastCell['row']!,
-              'colDelta': col - lastCell['col']!,
-            };
-            selectedCells.add(cellKey);
-            selectedPath.add({'row': row, 'col': col});
-          });
-        }
-      } else {
-        // Subsequent cells - must follow the same direction
-        final lastCell = selectedPath.last;
-        final expectedRow = lastCell['row']! + selectionDirection!['rowDelta']!;
-        final expectedCol = lastCell['col']! + selectionDirection!['colDelta']!;
-        
-        if (row == expectedRow && col == expectedCol) {
-          setState(() {
-            selectedCells.add(cellKey);
-            selectedPath.add({'row': row, 'col': col});
-          });
-        }
+    // Clear previous selection
+    selectedCells.clear();
+    selectedPath.clear();
+
+    // Get all cells along the line using Bresenham's algorithm
+    final cells = _getCellsAlongLine(
+      _dragStartCell!['row']!,
+      _dragStartCell!['col']!,
+      currentRow,
+      currentCol,
+    );
+
+    // Add all cells to selection
+    for (final cell in cells) {
+      final row = cell['row']!;
+      final col = cell['col']!;
+
+      // Check bounds
+      if (row >= 0 && row < widget.puzzle.gridSize &&
+          col >= 0 && col < widget.puzzle.gridSize) {
+        selectedCells.add('$row,$col');
+        selectedPath.add(cell);
       }
     }
   }
 
-  bool _isAdjacent(Map<String, int> cell1, Map<String, int> cell2) {
-    final rowDiff = (cell1['row']! - cell2['row']!).abs();
-    final colDiff = (cell1['col']! - cell2['col']!).abs();
-    
-    // Adjacent includes horizontal, vertical, and diagonal (max diff of 1 in each direction)
-    return rowDiff <= 1 && colDiff <= 1 && (rowDiff + colDiff) > 0;
+  // Bresenham's line algorithm to get all cells along a line
+  List<Map<String, int>> _getCellsAlongLine(
+      int x0, int y0, int x1, int y1) {
+    final cells = <Map<String, int>>[];
+
+    int dx = (x1 - x0).abs();
+    int dy = (y1 - y0).abs();
+    int sx = x0 < x1 ? 1 : -1;
+    int sy = y0 < y1 ? 1 : -1;
+    int err = dx - dy;
+
+    int x = x0;
+    int y = y0;
+
+    while (true) {
+      cells.add({'row': x, 'col': y});
+
+      if (x == x1 && y == y1) break;
+
+      int e2 = 2 * err;
+      if (e2 > -dy) {
+        err -= dy;
+        x += sx;
+      }
+      if (e2 < dx) {
+        err += dx;
+        y += sy;
+      }
+    }
+
+    return cells;
   }
 
-  void _checkSelectedWord() {
+  void _checkSelectedWord() async {
     if (selectedPath.isEmpty) {
       return;
     }
@@ -387,16 +507,29 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
             selectedWord.split('').reversed.join().toUpperCase() == puzzleWord.word.toUpperCase()) {
           setState(() {
             foundWords.add(puzzleWord.word);
+            // Store the path for drawing the line
+            foundWordPaths[puzzleWord.word] = List.from(selectedPath);
           });
-          
+
+          // Save progress
+          _saveProgress();
+
           // Show success feedback
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Found: ${puzzleWord.word}!'),
-              duration: const Duration(seconds: 1),
-              backgroundColor: Colors.green,
-            ),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Found: ${puzzleWord.word}!'),
+                duration: const Duration(seconds: 1),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+
+          // Check if puzzle is complete
+          if (foundWords.length == widget.puzzle.words.length) {
+            _handlePuzzleCompletion();
+          }
+
           break;
         }
       }
@@ -407,5 +540,145 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
       selectedCells.clear();
       selectedPath.clear();
     });
+  }
+
+  Future<void> _saveProgress() async {
+    final progressProvider =
+        Provider.of<UserProgressProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    final userId = authProvider.currentProfile?.userId ?? 'guest';
+    final progress = UserPuzzleProgress(
+      puzzleId: widget.puzzle.id,
+      userId: userId,
+      foundWords: foundWords.toList(),
+      completed: foundWords.length == widget.puzzle.words.length,
+      completedAt: foundWords.length == widget.puzzle.words.length
+          ? DateTime.now()
+          : null,
+    );
+
+    await progressProvider.savePuzzleProgress(progress);
+  }
+
+  Future<void> _handlePuzzleCompletion() async {
+    final progressProvider =
+        Provider.of<UserProgressProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    // Mark level as completed
+    final newLevelUnlocked =
+        await progressProvider.completeLevel(widget.levelNumber);
+
+    if (!mounted) return;
+
+    // Show completion dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.celebration, color: Colors.amber, size: 32),
+            SizedBox(width: 8),
+            Text('Level Complete!'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You completed Level ${widget.levelNumber}!',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Found all ${widget.puzzle.words.length} words!',
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            if (newLevelUnlocked && widget.levelNumber < 30)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.lock_open, color: Colors.amber),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Level ${widget.levelNumber + 1} unlocked!',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amber,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (widget.levelNumber == 30)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.purple[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.purple),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.emoji_events, color: Colors.purple, size: 32),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'ALL LEVELS COMPLETED! YOU ARE A LEGEND! 🏆',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (newLevelUnlocked) const SizedBox(height: 16),
+            if (authProvider.isGuest) ...[
+              const Text(
+                'Sign in to save your progress across devices!',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          if (authProvider.isGuest)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pop(context); // Go back to home
+              },
+              child: const Text('Sign In'),
+            ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.pop(context); // Go back to home
+            },
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
   }
 }
