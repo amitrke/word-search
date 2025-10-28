@@ -4,6 +4,7 @@ import '../services/progress_service.dart';
 
 class UserProgressProvider with ChangeNotifier {
   final ProgressService _progressService = ProgressService();
+  Function(UserProfile)? _onProfileUpdate;
 
   UserProfile? _currentProfile;
   Map<String, UserPuzzleProgress> _puzzleProgressMap = {};
@@ -20,6 +21,11 @@ class UserProgressProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // Set the callback for profile updates (called by AuthProvider)
+  void setOnProfileUpdate(Function(UserProfile) callback) {
+    _onProfileUpdate = callback;
+  }
+
   // Complete a level
   Future<bool> completeLevel(int levelNumber) async {
     if (_currentProfile == null) return false;
@@ -33,6 +39,11 @@ class UserProgressProvider with ChangeNotifier {
         _currentProfile!,
         levelNumber,
       );
+
+      // Update AuthProvider with the new profile
+      if (_onProfileUpdate != null) {
+        _onProfileUpdate!(_currentProfile!);
+      }
 
       // Check if a new level was unlocked
       final newLevel = _progressService.getNewlyUnlockedLevel(

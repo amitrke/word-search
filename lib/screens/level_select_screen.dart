@@ -194,19 +194,30 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
   }
 
   void _selectLevel(LevelConfig levelConfig) async {
-    // Query for a puzzle matching this level's difficulty
+    // Query for a puzzle matching this level
     try {
-      final querySnapshot = await FirebaseFirestore.instance
+      // First try to find a puzzle with the exact level
+      var querySnapshot = await FirebaseFirestore.instance
           .collection('puzzles')
-          .where('difficulty', isEqualTo: levelConfig.difficulty)
+          .where('level', isEqualTo: levelConfig.level)
           .limit(1)
           .get();
+
+      // If no puzzle found for specific level, fall back to difficulty
+      if (querySnapshot.docs.isEmpty) {
+        querySnapshot = await FirebaseFirestore.instance
+            .collection('puzzles')
+            .where('difficulty', isEqualTo: levelConfig.difficulty)
+            .limit(1)
+            .get();
+      }
 
       if (querySnapshot.docs.isEmpty && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('No puzzles available for Level ${levelConfig.level}'),
+            content: Text('No puzzles available for Level ${levelConfig.level}. Please generate puzzles first.'),
             backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
           ),
         );
         return;
@@ -232,6 +243,7 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
           SnackBar(
             content: Text('Error loading puzzle: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }

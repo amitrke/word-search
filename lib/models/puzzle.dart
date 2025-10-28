@@ -2,6 +2,7 @@ class Puzzle {
   final String id;
   final String theme;
   final String difficulty;
+  final int? level; // Level number (1-30), optional for backward compatibility
   final int gridSize;
   final List<String> grid; // Array of strings from Firestore
   final List<PuzzleWord> words;
@@ -12,6 +13,7 @@ class Puzzle {
     required this.id,
     required this.theme,
     required this.difficulty,
+    this.level,
     required this.gridSize,
     required this.grid,
     required this.words,
@@ -25,6 +27,7 @@ class Puzzle {
       id: id,
       theme: data['theme'] ?? '',
       difficulty: data['difficulty'] ?? '',
+      level: data['level'] as int?, // Optional level field
       gridSize: data['gridSize'] ?? 8,
       grid: List<String>.from(data['grid'] ?? []),
       words: (data['words'] as List<dynamic>?)
@@ -38,7 +41,7 @@ class Puzzle {
 
   // Convert to Firestore format
   Map<String, dynamic> toFirestore() {
-    return {
+    final map = {
       'theme': theme,
       'difficulty': difficulty,
       'gridSize': gridSize,
@@ -47,6 +50,10 @@ class Puzzle {
       'popularity': popularity,
       'tags': tags,
     };
+    if (level != null) {
+      map['level'] = level!;
+    }
+    return map;
   }
 
   // Convert grid strings to 2D array for display

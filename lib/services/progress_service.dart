@@ -18,7 +18,11 @@ class ProgressService {
 
   // Save guest profile locally
   Future<void> saveGuestProfileLocally(UserProfile profile) async {
-    await _progressBox.put(_localProfileKey, profile.toFirestore());
+    final data = profile.toFirestore();
+    // Convert DateTime to ISO8601 strings for Hive storage
+    data['createdAt'] = profile.createdAt.toIso8601String();
+    data['lastPlayedAt'] = profile.lastPlayedAt.toIso8601String();
+    await _progressBox.put(_localProfileKey, data);
   }
 
   // Load guest profile from local storage

@@ -33,10 +33,19 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProxyProvider<AuthProvider, UserProgressProvider>(
           create: (_) => UserProgressProvider(),
           update: (_, authProvider, progressProvider) {
+            final provider = progressProvider ?? UserProgressProvider();
+
+            // Set up callback to update AuthProvider when progress changes
+            provider.setOnProfileUpdate((updatedProfile) {
+              authProvider.updateProfile(updatedProfile);
+            });
+
+            // Update provider with current profile from AuthProvider
             if (authProvider.currentProfile != null) {
-              progressProvider?.setUserProfile(authProvider.currentProfile!);
+              provider.setUserProfile(authProvider.currentProfile!);
             }
-            return progressProvider ?? UserProgressProvider();
+
+            return provider;
           },
         ),
       ],
