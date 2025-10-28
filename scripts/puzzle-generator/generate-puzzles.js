@@ -13,12 +13,12 @@ const THEMES = [
 
 // Level-based configuration (30 levels)
 const LEVEL_CONFIG = [
-  // Levels 1-5: Beginner (5x5 to 7x7, horizontal/vertical only)
+  // Levels 1-5: Beginner (5x5 to 7x7, introducing diagonals)
   { level: 1, gridSize: 5, minWords: 3, maxWords: 4, difficulty: 'simple', directions: ['horizontal', 'vertical'] },
-  { level: 2, gridSize: 5, minWords: 4, maxWords: 5, difficulty: 'simple', directions: ['horizontal', 'vertical'] },
-  { level: 3, gridSize: 6, minWords: 4, maxWords: 5, difficulty: 'simple', directions: ['horizontal', 'vertical'] },
-  { level: 4, gridSize: 6, minWords: 5, maxWords: 6, difficulty: 'simple', directions: ['horizontal', 'vertical'] },
-  { level: 5, gridSize: 7, minWords: 5, maxWords: 6, difficulty: 'simple', directions: ['horizontal', 'vertical'] },
+  { level: 2, gridSize: 5, minWords: 4, maxWords: 5, difficulty: 'simple', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 3, gridSize: 6, minWords: 4, maxWords: 5, difficulty: 'simple', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 4, gridSize: 6, minWords: 5, maxWords: 6, difficulty: 'simple', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
+  { level: 5, gridSize: 7, minWords: 5, maxWords: 6, difficulty: 'simple', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },
 
   // Levels 6-10: Easy (8x8, add diagonals)
   { level: 6, gridSize: 8, minWords: 6, maxWords: 7, difficulty: 'simple', directions: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'] },

@@ -46,7 +46,7 @@ class LevelSystem {
 
   // Define all 30 levels with progressive difficulty
   static final List<LevelConfig> levels = [
-    // Levels 1-5: Beginner (5x5, horizontal/vertical only)
+    // Levels 1-5: Beginner (5x5-7x7, introducing diagonals)
     LevelConfig(
       level: 1,
       gridSize: 5,
@@ -60,15 +60,15 @@ class LevelSystem {
       gridSize: 5,
       minWords: 4,
       maxWords: 5,
-      allowedDirections: ['horizontal', 'vertical'],
-      description: 'Small grid, easy words',
+      allowedDirections: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'],
+      description: 'Diagonals introduced!',
     ),
     LevelConfig(
       level: 3,
       gridSize: 6,
       minWords: 4,
       maxWords: 5,
-      allowedDirections: ['horizontal', 'vertical'],
+      allowedDirections: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'],
       description: 'Getting bigger',
     ),
     LevelConfig(
@@ -76,7 +76,7 @@ class LevelSystem {
       gridSize: 6,
       minWords: 5,
       maxWords: 6,
-      allowedDirections: ['horizontal', 'vertical'],
+      allowedDirections: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'],
       description: 'More words to find',
     ),
     LevelConfig(
@@ -84,7 +84,7 @@ class LevelSystem {
       gridSize: 7,
       minWords: 5,
       maxWords: 6,
-      allowedDirections: ['horizontal', 'vertical'],
+      allowedDirections: ['horizontal', 'vertical', 'diagonal-down', 'diagonal-up'],
       description: 'Final beginner level',
     ),
 

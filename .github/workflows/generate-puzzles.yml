@@ -11,7 +11,7 @@ on:
       puzzle_count:
         description: 'Number of puzzles to generate'
         required: false
-        default: '30'
+        default: '10'
       theme:
         description: 'Specific theme (leave empty for all themes)'
         required: false
@@ -19,7 +19,7 @@ on:
       level_filter:
         description: 'Level range (e.g., "1-5" for levels 1-5, or "1" for level 1, or empty for all)'
         required: false
-        default: ''
+        default: '1-5'
       force_generate:
         description: 'Force generation (ignore inventory checks)'
         required: false
@@ -53,9 +53,9 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          PUZZLE_COUNT: ${{ github.event.inputs.puzzle_count || '30' }}
+          PUZZLE_COUNT: ${{ github.event.inputs.puzzle_count || '10' }}
           THEME_FILTER: ${{ github.event.inputs.theme || '' }}
-          LEVEL_FILTER: ${{ github.event.inputs.level_filter || '' }}
+          LEVEL_FILTER: ${{ github.event.inputs.level_filter || '1-5' }}
           FORCE_GENERATE: ${{ github.event.inputs.force_generate || 'false' }}
           # Inventory management configuration
           MIN_PUZZLES: '60'           # Minimum total puzzles to maintain (2 per level minimum)
