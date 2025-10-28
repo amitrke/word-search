@@ -155,6 +155,68 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  Future<bool> signInWithGoogle() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final oldProfile = _currentProfile;
+      _currentProfile = await _authService.signInWithGoogle();
+
+      // Migrate guest progress if user was a guest
+      if (oldProfile != null &&
+          oldProfile.isGuest &&
+          _currentProfile!.userId != null) {
+        await _authService.migrateGuestProgress(
+          oldProfile,
+          _currentProfile!.userId!,
+        );
+        // Clear local guest data
+        await _progressService.clearGuestData();
+      }
+
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> signInWithApple() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final oldProfile = _currentProfile;
+      _currentProfile = await _authService.signInWithApple();
+
+      // Migrate guest progress if user was a guest
+      if (oldProfile != null &&
+          oldProfile.isGuest &&
+          _currentProfile!.userId != null) {
+        await _authService.migrateGuestProgress(
+          oldProfile,
+          _currentProfile!.userId!,
+        );
+        // Clear local guest data
+        await _progressService.clearGuestData();
+      }
+
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> signOut() async {
     _isLoading = true;
     _error = null;
