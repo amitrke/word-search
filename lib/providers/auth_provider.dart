@@ -53,6 +53,10 @@ class AuthProvider with ChangeNotifier {
     _authService.authStateChanges.listen((user) {
       if (user != null) {
         _loadUserProfile(user.uid);
+      } else {
+        // User signed out
+        _currentProfile = UserProfile.guest();
+        notifyListeners();
       }
     });
   }

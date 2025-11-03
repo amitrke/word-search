@@ -109,34 +109,182 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
   }
 
   Widget _buildLevelGrid(UserProgressProvider progressProvider) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 5, // 5 levels per row
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1,
-      ),
-      itemCount: LevelSystem.maxLevel,
-      itemBuilder: (context, index) {
-        final level = index + 1;
-        final levelConfig = LevelSystem.getLevel(level);
-        final isUnlocked = progressProvider.isLevelUnlocked(level);
-        final isCompleted = level <= (progressProvider.currentProfile?.highestCompletedLevel ?? 0);
-        final isCurrent = level == (progressProvider.currentProfile?.currentLevel ?? 1);
+    final highestCompletedLevel = progressProvider.currentProfile?.highestCompletedLevel ?? 0;
 
-        return _buildLevelCard(levelConfig, isUnlocked, isCompleted, isCurrent);
-      },
+    // Current level is the next unplayed level (highest completed + 1)
+    final currentLevel = highestCompletedLevel + 1;
+
+    final currentLevelConfig = LevelSystem.getLevel(currentLevel);
+    final nextLevelConfig = currentLevel < LevelSystem.maxLevel
+        ? LevelSystem.getLevel(currentLevel + 1)
+        : null;
+
+    final currentIsCompleted = currentLevel <= highestCompletedLevel;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWideScreen = screenWidth > 800;
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          if (isWideScreen && nextLevelConfig != null)
+            // Side-by-side layout for wide screens
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Current Level',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildLevelCard(
+                        currentLevelConfig,
+                        true,
+                        currentIsCompleted,
+                        true,
+                        isLarge: false,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Next Level',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildLevelCard(
+                        nextLevelConfig,
+                        currentIsCompleted,
+                        false,
+                        false,
+                        isLarge: false,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          else
+            // Vertical layout for mobile or when at max level
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  'Current Level',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: _buildLevelCard(
+                    currentLevelConfig,
+                    true,
+                    currentIsCompleted,
+                    true,
+                    isLarge: true,
+                  ),
+                ),
+                if (nextLevelConfig != null) ...[
+                  const SizedBox(height: 24),
+                  Text(
+                    'Next Level',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _buildLevelCard(
+                      nextLevelConfig,
+                      currentIsCompleted,
+                      false,
+                      false,
+                      isLarge: true,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          const SizedBox(height: 24),
+          // Status message
+          if (nextLevelConfig != null && !currentIsCompleted)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.amber[50],
+                border: Border.all(color: Colors.amber[300]!),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.lock_outline, color: Colors.amber[700]),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Complete Level $currentLevel to unlock the next level',
+                      style: TextStyle(
+                        color: Colors.amber[900],
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (nextLevelConfig == null)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                border: Border.all(color: Colors.green[300]!),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.star, color: Colors.amber),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'You\'ve mastered all levels! 🎉',
+                      style: TextStyle(
+                        color: Colors.green[900],
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
-  Widget _buildLevelCard(LevelConfig levelConfig, bool isUnlocked, bool isCompleted, bool isCurrent) {
+  Widget _buildLevelCard(
+    LevelConfig levelConfig,
+    bool isUnlocked,
+    bool isCompleted,
+    bool isCurrent, {
+    bool isLarge = false,
+  }) {
     return InkWell(
       onTap: isUnlocked
           ? () => _selectLevel(levelConfig)
           : () => _showLockedMessage(levelConfig.level),
       borderRadius: BorderRadius.circular(12),
       child: Container(
+        padding: isLarge ? const EdgeInsets.all(24) : const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
@@ -155,40 +303,121 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
                   ? Colors.white
                   : Colors.grey[200],
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Emoji or lock icon
-            if (!isUnlocked)
-              const Icon(Icons.lock, size: 24, color: Colors.grey)
-            else if (isCompleted)
-              const Icon(Icons.check_circle, size: 24, color: Colors.green)
-            else
-              Text(levelConfig.emoji, style: const TextStyle(fontSize: 24)),
+        child: isLarge
+            ? Column(
+                children: [
+                  // Emoji or lock icon
+                  if (!isUnlocked)
+                    const Icon(Icons.lock, size: 48, color: Colors.grey)
+                  else if (isCompleted)
+                    const Icon(Icons.check_circle, size: 48, color: Colors.green)
+                  else
+                    Text(levelConfig.emoji, style: const TextStyle(fontSize: 48)),
 
-            const SizedBox(height: 4),
+                  const SizedBox(height: 16),
 
-            // Level number
-            Text(
-              '${levelConfig.level}',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isUnlocked ? Colors.black87 : Colors.grey[600],
+                  // Level number and title
+                  Text(
+                    '${levelConfig.level}',
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    levelConfig.displayName,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Grid size and word count
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Grid: ${levelConfig.gridSize}×${levelConfig.gridSize}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Words: ${levelConfig.minWords}-${levelConfig.maxWords}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  if (isCompleted) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.green[100],
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Completed',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green[700],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Emoji or lock icon
+                  if (!isUnlocked)
+                    const Icon(Icons.lock, size: 24, color: Colors.grey)
+                  else if (isCompleted)
+                    const Icon(Icons.check_circle, size: 24, color: Colors.green)
+                  else
+                    Text(levelConfig.emoji, style: const TextStyle(fontSize: 24)),
+
+                  const SizedBox(height: 4),
+
+                  // Level number
+                  Text(
+                    '${levelConfig.level}',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isUnlocked ? Colors.black87 : Colors.grey[600],
+                    ),
+                  ),
+
+                  // Grid size
+                  if (isUnlocked)
+                    Text(
+                      '${levelConfig.gridSize}×${levelConfig.gridSize}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                ],
               ),
-            ),
-
-            // Grid size
-            if (isUnlocked)
-              Text(
-                '${levelConfig.gridSize}×${levelConfig.gridSize}',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey[600],
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }
