@@ -9,7 +9,7 @@ on:
     # Allow manual trigger
     inputs:
       puzzle_count:
-        description: 'Number of puzzles to generate'
+        description: 'Number of puzzles to generate (max 15 per run)'
         required: false
         default: '10'
       theme:
@@ -17,9 +17,9 @@ on:
         required: false
         default: ''
       level_filter:
-        description: 'Level range (e.g., "1-5" for levels 1-5, or "1" for level 1, or empty for all)'
+        description: 'Level range (e.g., "1-5" for levels 1-5, or "1" for level 1, or empty for smart selection based on user progress)'
         required: false
-        default: '1-5'
+        default: ''
       force_generate:
         description: 'Force generation (ignore inventory checks)'
         required: false
@@ -55,14 +55,17 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           PUZZLE_COUNT: ${{ github.event.inputs.puzzle_count || '10' }}
           THEME_FILTER: ${{ github.event.inputs.theme || '' }}
-          LEVEL_FILTER: ${{ github.event.inputs.level_filter || '1-5' }}
+          LEVEL_FILTER: ${{ github.event.inputs.level_filter || '' }}
           FORCE_GENERATE: ${{ github.event.inputs.force_generate || 'false' }}
-          # Inventory management configuration
+          # Smart inventory management configuration
+          MAX_PUZZLES_PER_RUN: '15'   # Maximum puzzles to generate in one run (limit API costs)
           MIN_PUZZLES: '60'           # Minimum total puzzles to maintain (2 per level minimum)
           MAX_PUZZLES: '300'          # Maximum total puzzles (stop if reached) (10 per level)
           MIN_CONSUMPTION_RATE: '20'  # Only generate if >20% of puzzles have been played
-          MIN_PER_DIFFICULTY: '20'    # Minimum puzzles per difficulty level
-          MIN_PER_THEME: '10'         # Minimum puzzles per theme (at least 1 per 3 levels)
+          # Level-specific configuration
+          MIN_PER_LEVEL: '2'          # Minimum puzzles per level (critical threshold)
+          TARGET_PER_LEVEL: '5'       # Target puzzles per level (good inventory)
+          MAX_PER_LEVEL: '10'         # Maximum puzzles per level (stop generating)
         run: node generate-puzzles.js
 
       - name: Upload logs

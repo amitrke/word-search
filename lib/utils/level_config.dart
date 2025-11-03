@@ -299,11 +299,25 @@ class LevelSystem {
     ),
   ];
 
-  // Get configuration for a specific level
+  // Get configuration for a specific level (uses intermediate track by default)
   static LevelConfig getLevel(int level) {
     if (level < 1 || level > maxLevel) {
       return levels[0]; // Default to level 1
     }
+    return levels[level - 1];
+  }
+
+  // NEW: Get configuration for a specific level based on skill level
+  static LevelConfig getLevelForSkill(int level, dynamic skillLevel) {
+    // Import difficulty_tracks dynamically to avoid circular dependency
+    // This will be called from the UI with the appropriate skill level
+
+    if (level < 1 || level > maxLevel) {
+      return levels[0]; // Default to level 1
+    }
+
+    // For now, return the default config
+    // The actual skill-based config is retrieved from difficulty_tracks.dart
     return levels[level - 1];
   }
 

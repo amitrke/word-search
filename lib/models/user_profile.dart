@@ -1,7 +1,10 @@
+import '../utils/difficulty_tracks.dart';
+
 class UserProfile {
   final String? userId; // null for guest users
   final String displayName;
   final bool isGuest;
+  final SkillLevel skillLevel; // NEW: User's chosen difficulty track
   final int currentLevel; // Current level the user is on
   final int highestCompletedLevel; // Highest level completed
   final int totalPuzzlesCompleted; // Total puzzles completed
@@ -12,6 +15,7 @@ class UserProfile {
     this.userId,
     this.displayName = 'Guest',
     this.isGuest = true,
+    this.skillLevel = SkillLevel.intermediate, // Default to intermediate
     this.currentLevel = 1,
     this.highestCompletedLevel = 0, // 0 means only level 1 is unlocked
     this.totalPuzzlesCompleted = 0,
@@ -26,6 +30,7 @@ class UserProfile {
       userId: userId,
       displayName: data['displayName'] ?? 'User',
       isGuest: false, // Firestore users are not guests
+      skillLevel: _parseSkillLevel(data['skillLevel']),
       currentLevel: data['currentLevel'] ?? 1,
       highestCompletedLevel: data['highestCompletedLevel'] ?? 0,
       totalPuzzlesCompleted: data['totalPuzzlesCompleted'] ?? 0,
@@ -34,10 +39,27 @@ class UserProfile {
     );
   }
 
+  // Helper to parse skill level from Firestore
+  static SkillLevel _parseSkillLevel(dynamic value) {
+    if (value == null) return SkillLevel.intermediate;
+    if (value is String) {
+      try {
+        return SkillLevel.values.firstWhere(
+          (e) => e.name == value,
+          orElse: () => SkillLevel.intermediate,
+        );
+      } catch (e) {
+        return SkillLevel.intermediate;
+      }
+    }
+    return SkillLevel.intermediate;
+  }
+
   // Convert to Firestore format
   Map<String, dynamic> toFirestore() {
     return {
       'displayName': displayName,
+      'skillLevel': skillLevel.name,
       'currentLevel': currentLevel,
       'highestCompletedLevel': highestCompletedLevel,
       'totalPuzzlesCompleted': totalPuzzlesCompleted,
@@ -60,6 +82,7 @@ class UserProfile {
     String? userId,
     String? displayName,
     bool? isGuest,
+    SkillLevel? skillLevel,
     int? currentLevel,
     int? highestCompletedLevel,
     int? totalPuzzlesCompleted,
@@ -70,6 +93,7 @@ class UserProfile {
       userId: userId ?? this.userId,
       displayName: displayName ?? this.displayName,
       isGuest: isGuest ?? this.isGuest,
+      skillLevel: skillLevel ?? this.skillLevel,
       currentLevel: currentLevel ?? this.currentLevel,
       highestCompletedLevel: highestCompletedLevel ?? this.highestCompletedLevel,
       totalPuzzlesCompleted: totalPuzzlesCompleted ?? this.totalPuzzlesCompleted,

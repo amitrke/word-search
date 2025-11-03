@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'screens/level_select_screen.dart';
+import 'screens/skill_level_selection_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/user_progress_provider.dart';
 
@@ -63,8 +65,66 @@ class MyApp extends StatelessWidget {
             elevation: 0,
           ),
         ),
-        home: const LevelSelectScreen(),
+        home: const _AppNavigator(),
       ),
     );
+  }
+}
+
+// Smart navigator that checks if user needs to select skill level
+class _AppNavigator extends StatefulWidget {
+  const _AppNavigator();
+
+  @override
+  State<_AppNavigator> createState() => _AppNavigatorState();
+}
+
+class _AppNavigatorState extends State<_AppNavigator> {
+  bool _isChecking = true;
+  bool _needsSkillSelection = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSkillLevelSelection();
+  }
+
+  Future<void> _checkSkillLevelSelection() async {
+    // Check if this is the first time user is opening the app
+    final prefs = await SharedPreferences.getInstance();
+    final hasCompletedOnboarding = prefs.getBool('has_completed_onboarding') ?? false;
+
+    // If onboarding is completed, go to level select
+    if (hasCompletedOnboarding) {
+      setState(() {
+        _isChecking = false;
+        _needsSkillSelection = false;
+      });
+      return;
+    }
+
+    // New user - show skill selection
+    setState(() {
+      _isChecking = false;
+      _needsSkillSelection = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isChecking) {
+      // Show loading while checking
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_needsSkillSelection) {
+      return const SkillLevelSelectionScreen();
+    }
+
+    return const LevelSelectScreen();
   }
 }

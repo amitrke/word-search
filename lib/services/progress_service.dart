@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user_profile.dart';
+import '../utils/difficulty_tracks.dart';
 
 class ProgressService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -29,10 +30,24 @@ class ProgressService {
   UserProfile loadGuestProfileLocally() {
     final data = _progressBox.get(_localProfileKey);
     if (data != null) {
+      // Parse skill level
+      SkillLevel skillLevel = SkillLevel.intermediate;
+      if (data['skillLevel'] != null) {
+        try {
+          skillLevel = SkillLevel.values.firstWhere(
+            (e) => e.name == data['skillLevel'],
+            orElse: () => SkillLevel.intermediate,
+          );
+        } catch (e) {
+          skillLevel = SkillLevel.intermediate;
+        }
+      }
+
       return UserProfile(
         userId: null,
         displayName: data['displayName'] ?? 'Guest',
         isGuest: true,
+        skillLevel: skillLevel,
         currentLevel: data['currentLevel'] ?? 1,
         highestCompletedLevel: data['highestCompletedLevel'] ?? 0,
         totalPuzzlesCompleted: data['totalPuzzlesCompleted'] ?? 0,
@@ -183,5 +198,19 @@ class ProgressService {
       return newProfile.highestCompletedLevel + 1; // Next level unlocked
     }
     return null;
+  }
+
+  // NEW: Update user profile (for skill level changes, etc.)
+  Future<void> updateUserProfile(UserProfile profile) async {
+    if (profile.isGuest) {
+      // Save to local storage
+      await saveGuestProfileLocally(profile);
+    } else if (profile.userId != null) {
+      // Save to Firestore
+      await _firestore
+          .collection('users')
+          .doc(profile.userId)
+          .set(profile.toFirestore(), SetOptions(merge: true));
+    }
   }
 }

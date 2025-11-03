@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/user_profile.dart';
 import '../services/progress_service.dart';
+import '../utils/difficulty_tracks.dart';
 
 class UserProgressProvider with ChangeNotifier {
   final ProgressService _progressService = ProgressService();
@@ -137,5 +138,68 @@ class UserProgressProvider with ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  // NEW: Get current skill level
+  SkillLevel get skillLevel => _currentProfile?.skillLevel ?? SkillLevel.intermediate;
+
+  // NEW: Set skill level
+  Future<void> setSkillLevel(SkillLevel level) async {
+    if (_currentProfile == null) return;
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final updatedProfile = _currentProfile!.copyWith(
+        skillLevel: level,
+      );
+
+      _currentProfile = updatedProfile;
+
+      // Save to Firebase
+      await _progressService.updateUserProfile(updatedProfile);
+
+      // Update AuthProvider with the new profile
+      if (_onProfileUpdate != null) {
+        _onProfileUpdate!(updatedProfile);
+      }
+
+      _error = null;
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // NEW: Get level config based on current skill level
+  LevelConfigOverride getCurrentLevelConfig() {
+    final level = _currentProfile?.currentLevel ?? 1;
+    final skill = skillLevel;
+    return getLevelConfig(skill, level) ?? _getDefaultConfig(level);
+  }
+
+  // NEW: Get level config for a specific level
+  LevelConfigOverride getLevelConfigForLevel(int level) {
+    final skill = skillLevel;
+    return getLevelConfig(skill, level) ?? _getDefaultConfig(level);
+  }
+
+  // Fallback to intermediate track if config not found
+  LevelConfigOverride _getDefaultConfig(int level) {
+    return getLevelConfig(SkillLevel.intermediate, level) ??
+        const LevelConfigOverride(
+          level: 1,
+          gridSize: 5,
+          minWords: 3,
+          maxWords: 4,
+          directions: ['horizontal', 'vertical'],
+          emoji: '🌱',
+          displayName: 'Level 1',
+        );
   }
 }

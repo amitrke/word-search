@@ -116,10 +116,29 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
     // Current level is the next unplayed level (highest completed + 1)
     final currentLevel = highestCompletedLevel + 1;
 
-    final currentLevelConfig = LevelSystem.getLevel(currentLevel);
-    final nextLevelConfig = currentLevel < LevelSystem.maxLevel
-        ? LevelSystem.getLevel(currentLevel + 1)
-        : null;
+    // NEW: Get skill-based level configs
+    final currentLevelConfigOverride = progressProvider.getLevelConfigForLevel(currentLevel);
+    final currentLevelConfig = LevelConfig(
+      level: currentLevel,
+      gridSize: currentLevelConfigOverride.gridSize,
+      minWords: currentLevelConfigOverride.minWords,
+      maxWords: currentLevelConfigOverride.maxWords,
+      allowedDirections: currentLevelConfigOverride.directions,
+      description: currentLevelConfigOverride.displayName,
+    );
+
+    LevelConfig? nextLevelConfig;
+    if (currentLevel < LevelSystem.maxLevel) {
+      final nextLevelConfigOverride = progressProvider.getLevelConfigForLevel(currentLevel + 1);
+      nextLevelConfig = LevelConfig(
+        level: currentLevel + 1,
+        gridSize: nextLevelConfigOverride.gridSize,
+        minWords: nextLevelConfigOverride.minWords,
+        maxWords: nextLevelConfigOverride.maxWords,
+        allowedDirections: nextLevelConfigOverride.directions,
+        description: nextLevelConfigOverride.displayName,
+      );
+    }
 
     final currentIsCompleted = currentLevel <= highestCompletedLevel;
     final screenWidth = MediaQuery.of(context).size.width;
@@ -428,26 +447,47 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
   void _selectLevel(LevelConfig levelConfig) async {
     // Query for a puzzle matching this level
     try {
-      // First try to find a puzzle with the exact level
+      // NEW: First try to find a puzzle with the exact level AND grid size
+      // This ensures we get puzzles appropriate for the user's skill level
       var querySnapshot = await FirebaseFirestore.instance
           .collection('puzzles')
           .where('level', isEqualTo: levelConfig.level)
-          .limit(1)
+          .where('gridSize', isEqualTo: levelConfig.gridSize)
+          .limit(10)
           .get();
 
-      // If no puzzle found for specific level, fall back to difficulty
+      // If no puzzle found for specific level + gridSize, try just level
+      if (querySnapshot.docs.isEmpty) {
+        querySnapshot = await FirebaseFirestore.instance
+            .collection('puzzles')
+            .where('level', isEqualTo: levelConfig.level)
+            .limit(10)
+            .get();
+      }
+
+      // If still no puzzle found, fall back to difficulty + gridSize
       if (querySnapshot.docs.isEmpty) {
         querySnapshot = await FirebaseFirestore.instance
             .collection('puzzles')
             .where('difficulty', isEqualTo: levelConfig.difficulty)
-            .limit(1)
+            .where('gridSize', isEqualTo: levelConfig.gridSize)
+            .limit(10)
+            .get();
+      }
+
+      // Final fallback: just difficulty
+      if (querySnapshot.docs.isEmpty) {
+        querySnapshot = await FirebaseFirestore.instance
+            .collection('puzzles')
+            .where('difficulty', isEqualTo: levelConfig.difficulty)
+            .limit(10)
             .get();
       }
 
       if (querySnapshot.docs.isEmpty && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('No puzzles available for Level ${levelConfig.level}. Please generate puzzles first.'),
+            content: Text('No puzzles available for Level ${levelConfig.level} (${levelConfig.gridSize}×${levelConfig.gridSize}). Please generate puzzles first.'),
             backgroundColor: Colors.orange,
             duration: const Duration(seconds: 4),
           ),
@@ -455,7 +495,11 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
         return;
       }
 
-      final puzzleDoc = querySnapshot.docs.first;
+      // Pick a random puzzle from the results
+      final randomIndex = (querySnapshot.docs.length > 1)
+          ? DateTime.now().millisecond % querySnapshot.docs.length
+          : 0;
+      final puzzleDoc = querySnapshot.docs[randomIndex];
       final puzzle = Puzzle.fromFirestore(puzzleDoc.id, puzzleDoc.data());
 
       if (mounted) {

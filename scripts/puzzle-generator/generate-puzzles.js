@@ -138,6 +138,17 @@ async function checkInventory(db) {
       puzzlesByTheme[theme] = snapshot.data().count;
     }
 
+    // NEW: Get puzzles by level (more granular)
+    const puzzlesByLevel = {};
+    for (const levelConfig of LEVEL_CONFIG) {
+      const snapshot = await db
+        .collection('puzzles')
+        .where('level', '==', levelConfig.level)
+        .count()
+        .get();
+      puzzlesByLevel[levelConfig.level] = snapshot.data().count;
+    }
+
     // Calculate usage statistics
     const totalUserPuzzlesSnapshot = await db.collection('userPuzzles').count().get();
     const totalPlayed = totalUserPuzzlesSnapshot.data().count;
@@ -171,6 +182,7 @@ async function checkInventory(db) {
       totalPuzzles,
       puzzlesByDifficulty,
       puzzlesByTheme,
+      puzzlesByLevel,
       totalPlayed,
       totalCompleted,
       consumptionRate
@@ -183,11 +195,171 @@ async function checkInventory(db) {
       totalPuzzles: 0,
       puzzlesByDifficulty: {},
       puzzlesByTheme: {},
+      puzzlesByLevel: {},
       totalPlayed: 0,
       totalCompleted: 0,
       consumptionRate: 100 // Assume high consumption to trigger generation
     };
   }
+}
+
+// NEW: Analyze user progress to identify active levels
+async function analyzeUserProgress(db) {
+  console.log('👥 Analyzing user progress...\n');
+
+  try {
+    // Get all user profiles to see where users are
+    const usersSnapshot = await db.collection('users').get();
+    const userProfiles = usersSnapshot.docs.map(doc => doc.data());
+
+    // Count users at each level
+    const usersAtLevel = {};
+    let totalUsers = 0;
+
+    for (const profile of userProfiles) {
+      const currentLevel = profile.currentLevel || 1;
+      usersAtLevel[currentLevel] = (usersAtLevel[currentLevel] || 0) + 1;
+      totalUsers++;
+    }
+
+    // Get puzzle plays by level (to see which levels are being actively played)
+    const levelActivity = {};
+
+    // Sample recent activity (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const userPuzzlesSnapshot = await db
+      .collection('userPuzzles')
+      .where('startedAt', '>=', admin.firestore.Timestamp.fromDate(sevenDaysAgo))
+      .get();
+
+    for (const doc of userPuzzlesSnapshot.docs) {
+      const puzzleId = doc.data().puzzleId;
+
+      // Get the puzzle to find its level
+      const puzzleDoc = await db.collection('puzzles').doc(puzzleId).get();
+      if (puzzleDoc.exists) {
+        const level = puzzleDoc.data().level || 1;
+        levelActivity[level] = (levelActivity[level] || 0) + 1;
+      }
+    }
+
+    console.log('  User Distribution:');
+    console.log(`    Total active users: ${totalUsers}`);
+
+    // Show top 5 levels with most users
+    const topLevels = Object.entries(usersAtLevel)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5);
+
+    for (const [level, count] of topLevels) {
+      console.log(`    Level ${level}: ${count} users`);
+    }
+
+    console.log(`\n  Recent Activity (7 days):`);
+    const activeLevels = Object.entries(levelActivity)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5);
+
+    for (const [level, plays] of activeLevels) {
+      console.log(`    Level ${level}: ${plays} plays`);
+    }
+    console.log('');
+
+    return {
+      totalUsers,
+      usersAtLevel,
+      levelActivity
+    };
+
+  } catch (error) {
+    console.error('  ⚠ Error analyzing user progress:', error.message);
+    return {
+      totalUsers: 0,
+      usersAtLevel: {},
+      levelActivity: {}
+    };
+  }
+}
+
+// NEW: Smart prioritization of which levels need puzzles
+function prioritizeLevelsForGeneration(inventory, userProgress, config) {
+  const {
+    puzzlesByLevel
+  } = inventory;
+
+  const {
+    usersAtLevel,
+    levelActivity
+  } = userProgress;
+
+  const {
+    minPerLevel = 2,
+    targetPerLevel = 5,
+    maxPerLevel = 10
+  } = config;
+
+  const priorities = [];
+
+  for (const levelConfig of LEVEL_CONFIG) {
+    const level = levelConfig.level;
+    const currentCount = puzzlesByLevel[level] || 0;
+    const usersHere = usersAtLevel[level] || 0;
+    const recentPlays = levelActivity[level] || 0;
+
+    // Calculate priority score
+    let priority = 0;
+    let reasons = [];
+
+    // Critical: Below minimum threshold
+    if (currentCount < minPerLevel) {
+      priority += 100;
+      reasons.push('critical_low');
+    }
+
+    // High: Users are at this level but low inventory
+    if (usersHere > 0 && currentCount < targetPerLevel) {
+      priority += 50 + (usersHere * 5);
+      reasons.push(`${usersHere}_users_here`);
+    }
+
+    // High: Recent activity but low inventory
+    if (recentPlays > 0 && currentCount < targetPerLevel) {
+      priority += 40 + recentPlays;
+      reasons.push(`${recentPlays}_recent_plays`);
+    }
+
+    // Medium: Below target
+    if (currentCount < targetPerLevel) {
+      priority += 20;
+      reasons.push('below_target');
+    }
+
+    // Don't generate if already at max
+    if (currentCount >= maxPerLevel) {
+      priority = 0;
+      reasons = ['at_max'];
+    }
+
+    if (priority > 0) {
+      priorities.push({
+        level,
+        levelConfig,
+        currentCount,
+        usersHere,
+        recentPlays,
+        priority,
+        reasons,
+        needed: Math.min(maxPerLevel - currentCount, targetPerLevel - currentCount)
+      });
+    }
+  }
+
+  // Sort by priority (highest first)
+  priorities.sort((a, b) => b.priority - a.priority);
+
+  return priorities;
 }
 
 function shouldGeneratePuzzles(inventory, config) {
@@ -512,13 +684,17 @@ async function main() {
     // Check current inventory
     const inventory = await checkInventory(db);
 
+    // NEW: Analyze user progress
+    const userProgress = await analyzeUserProgress(db);
+
     // Configuration for inventory management
     const inventoryConfig = {
-      minPuzzles: parseInt(process.env.MIN_PUZZLES || '30'),
-      maxPuzzles: parseInt(process.env.MAX_PUZZLES || '200'),
+      minPuzzles: parseInt(process.env.MIN_PUZZLES || '60'),
+      maxPuzzles: parseInt(process.env.MAX_PUZZLES || '300'),
       minConsumptionRate: parseInt(process.env.MIN_CONSUMPTION_RATE || '20'),
-      minPerDifficulty: parseInt(process.env.MIN_PER_DIFFICULTY || '8'),
-      minPerTheme: parseInt(process.env.MIN_PER_THEME || '3')
+      minPerLevel: parseInt(process.env.MIN_PER_LEVEL || '2'),
+      targetPerLevel: parseInt(process.env.TARGET_PER_LEVEL || '5'),
+      maxPerLevel: parseInt(process.env.MAX_PER_LEVEL || '10')
     };
 
     // Check if force generation is enabled
@@ -528,10 +704,34 @@ async function main() {
       console.log('⚡ Force generation enabled - skipping inventory checks\n');
     }
 
-    // Decide if we should generate
+    // NEW: Get smart level priorities
+    const levelPriorities = prioritizeLevelsForGeneration(inventory, userProgress, inventoryConfig);
+
+    if (levelPriorities.length === 0 && !forceGenerate) {
+      console.log('================================');
+      console.log('Reason: All levels have sufficient puzzles');
+      console.log('No puzzles generated. Exiting.');
+      console.log('================================\n');
+
+      // Save log
+      fs.writeFileSync(
+        'generation-log.json',
+        JSON.stringify({
+          skipped: true,
+          reason: 'all_levels_sufficient',
+          inventory,
+          userProgress,
+          timestamp: new Date().toISOString()
+        }, null, 2)
+      );
+
+      process.exit(0);
+    }
+
+    // Decide if we should generate based on old logic (for backwards compatibility)
     const decision = shouldGeneratePuzzles(inventory, inventoryConfig);
 
-    if (!decision.shouldGenerate && !forceGenerate) {
+    if (!decision.shouldGenerate && !forceGenerate && levelPriorities.length === 0) {
       console.log('================================');
       console.log(`Reason: ${decision.reason}`);
       console.log('No puzzles generated. Exiting.');
@@ -544,6 +744,7 @@ async function main() {
           skipped: true,
           reason: decision.reason,
           inventory,
+          userProgress,
           timestamp: new Date().toISOString()
         }, null, 2)
       );
@@ -551,88 +752,87 @@ async function main() {
       process.exit(0);
     }
 
-    // Get configuration from environment or decision
-    const puzzleCount = decision.targetCount || parseInt(process.env.PUZZLE_COUNT || '30');
-    const themeFilter = process.env.THEME_FILTER || '';
-    const levelFilter = process.env.LEVEL_FILTER || ''; // e.g., "1-5" for levels 1-5
+    // NEW: Smart generation based on priorities
+    // Limit to 10-15 puzzles per run
+    const MAX_PUZZLES_PER_RUN = parseInt(process.env.MAX_PUZZLES_PER_RUN || '15');
+    const puzzleCount = Math.min(MAX_PUZZLES_PER_RUN, decision.targetCount || 10);
 
-    const themes = decision.focusThemes || (themeFilter ? [themeFilter] : THEMES);
+    console.log(`\n🎯 Generation Strategy:`);
+    console.log(`  Max puzzles this run: ${MAX_PUZZLES_PER_RUN}`);
+    console.log(`  Target puzzles: ${puzzleCount}\n`);
 
-    // Parse level filter (e.g., "1-5" or "10" or empty for all)
-    let targetLevels = LEVEL_CONFIG;
-    if (levelFilter) {
-      if (levelFilter.includes('-')) {
-        const [start, end] = levelFilter.split('-').map(Number);
-        targetLevels = LEVEL_CONFIG.filter(lc => lc.level >= start && lc.level <= end);
-      } else {
-        const level = parseInt(levelFilter);
-        targetLevels = LEVEL_CONFIG.filter(lc => lc.level === level);
-      }
+    // Show top priority levels
+    console.log('📋 Priority Levels:');
+    const topPriorities = levelPriorities.slice(0, 10);
+    for (const p of topPriorities) {
+      console.log(`  Level ${p.level}: ${p.currentCount} puzzles, ${p.usersHere} users, ${p.recentPlays} plays (priority: ${p.priority}) - ${p.reasons.join(', ')}`);
     }
+    console.log('');
 
-    console.log(`\nConfiguration:`);
-    console.log(`  Target puzzles: ${puzzleCount}`);
-    console.log(`  Themes: ${themes.join(', ')}`);
-    console.log(`  Levels: ${targetLevels.map(l => l.level).join(', ')}`);
-    console.log(`  Reason: ${decision.reason}\n`);
-
-    // Calculate puzzles per theme/level
-    const combinations = themes.length * targetLevels.length;
-    const puzzlesPerCombo = Math.max(1, Math.ceil(puzzleCount / combinations));
-
-    console.log(`Generating ${puzzlesPerCombo} puzzle(s) per theme/level combination\n`);
+    // Get all themes or filtered themes
+    const themeFilter = process.env.THEME_FILTER || '';
+    const themes = themeFilter ? [themeFilter] : THEMES;
 
     let successCount = 0;
     let errorCount = 0;
+    let puzzlesGenerated = 0;
 
-    // Generate puzzles
-    for (const theme of themes) {
-      for (const levelConfig of targetLevels) {
-        for (let i = 0; i < puzzlesPerCombo; i++) {
-          try {
-            console.log(`[${successCount + errorCount + 1}/${puzzleCount}] ${theme} - Level ${levelConfig.level}...`);
+    // Generate puzzles based on priorities
+    for (const priorityLevel of topPriorities) {
+      if (puzzlesGenerated >= puzzleCount) {
+        break;
+      }
 
-            const puzzle = await generatePuzzle(openai, theme, levelConfig);
-            const docRef = await db.collection('puzzles').add(puzzle);
+      const levelConfig = priorityLevel.levelConfig;
+      const puzzlesToGenerate = Math.min(
+        priorityLevel.needed,
+        puzzleCount - puzzlesGenerated
+      );
 
-            console.log(`  ✓ Saved to Firestore: ${docRef.id}`);
-            console.log(`  ✓ Grid: ${levelConfig.gridSize}x${levelConfig.gridSize}`);
-            console.log(`  ✓ Words placed: ${puzzle.words.length}\n`);
-
-            successCount++;
-            logEntries.push({
-              success: true,
-              theme,
-              level: levelConfig.level,
-              difficulty: levelConfig.difficulty,
-              puzzleId: docRef.id,
-              wordCount: puzzle.words.length
-            });
-
-            // Rate limiting: 2 second delay between API calls
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-          } catch (error) {
-            console.error(`  ✗ Error: ${error.message}\n`);
-            errorCount++;
-            logEntries.push({
-              success: false,
-              theme,
-              level: levelConfig.level,
-              error: error.message
-            });
-          }
-
-          if (successCount + errorCount >= puzzleCount) {
-            break;
-          }
-        }
-        if (successCount + errorCount >= puzzleCount) {
+      // Distribute across themes
+      for (let i = 0; i < puzzlesToGenerate; i++) {
+        if (puzzlesGenerated >= puzzleCount) {
           break;
         }
-      }
-      if (successCount + errorCount >= puzzleCount) {
-        break;
+
+        const theme = themes[Math.floor(Math.random() * themes.length)];
+
+        try {
+          console.log(`[${successCount + errorCount + 1}/${puzzleCount}] ${theme} - Level ${levelConfig.level} (Priority: ${priorityLevel.priority.toFixed(0)})...`);
+
+          const puzzle = await generatePuzzle(openai, theme, levelConfig);
+          const docRef = await db.collection('puzzles').add(puzzle);
+
+          console.log(`  ✓ Saved to Firestore: ${docRef.id}`);
+          console.log(`  ✓ Grid: ${levelConfig.gridSize}x${levelConfig.gridSize}`);
+          console.log(`  ✓ Words placed: ${puzzle.words.length}\n`);
+
+          successCount++;
+          puzzlesGenerated++;
+          logEntries.push({
+            success: true,
+            theme,
+            level: levelConfig.level,
+            difficulty: levelConfig.difficulty,
+            puzzleId: docRef.id,
+            wordCount: puzzle.words.length,
+            priority: priorityLevel.priority
+          });
+
+          // Rate limiting: 2 second delay between API calls
+          await new Promise(resolve => setTimeout(resolve, 2000));
+
+        } catch (error) {
+          console.error(`  ✗ Error: ${error.message}\n`);
+          errorCount++;
+          puzzlesGenerated++;
+          logEntries.push({
+            success: false,
+            theme,
+            level: levelConfig.level,
+            error: error.message
+          });
+        }
       }
     }
 
