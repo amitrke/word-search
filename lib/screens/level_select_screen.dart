@@ -34,17 +34,19 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Progress banner
-          if (progressProvider.currentProfile != null)
-            _buildProgressBanner(progressProvider),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Progress banner
+            if (progressProvider.currentProfile != null)
+              _buildProgressBanner(progressProvider),
 
-          // Level grid
-          Expanded(
-            child: _buildLevelGrid(progressProvider),
-          ),
-        ],
+            // Level grid
+            Expanded(
+              child: _buildLevelGrid(progressProvider),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -56,8 +58,8 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -72,34 +74,34 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.emoji_events, color: Colors.amber),
-              const SizedBox(width: 8),
+              const Icon(Icons.emoji_events, color: Colors.amber, size: 20),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Level ${profile.currentLevel} • ${profile.totalPuzzlesCompleted} Completed',
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           LinearProgressIndicator(
             value: completionPercent / 100,
             backgroundColor: Colors.grey[200],
             valueColor: AlwaysStoppedAnimation<Color>(
               Theme.of(context).colorScheme.primary,
             ),
-            minHeight: 8,
-            borderRadius: BorderRadius.circular(4),
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(3),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             message,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 12,
               color: Colors.grey[700],
             ),
           ),
@@ -123,7 +125,7 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isWideScreen = screenWidth > 800;
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -182,9 +184,9 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
               children: [
                 Text(
                   'Current Level',
-                  style: Theme.of(context).textTheme.titleLarge,
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
                   child: _buildLevelCard(
@@ -196,12 +198,12 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
                   ),
                 ),
                 if (nextLevelConfig != null) ...[
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   Text(
                     'Next Level',
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
                     child: _buildLevelCard(
@@ -215,26 +217,26 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
                 ],
               ],
             ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           // Status message
           if (nextLevelConfig != null && !currentIsCompleted)
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.amber[50],
                 border: Border.all(color: Colors.amber[300]!),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.lock_outline, color: Colors.amber[700]),
-                  const SizedBox(width: 12),
+                  Icon(Icons.lock_outline, color: Colors.amber[700], size: 20),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Complete Level $currentLevel to unlock the next level',
                       style: TextStyle(
                         color: Colors.amber[900],
-                        fontSize: 14,
+                        fontSize: 13,
                       ),
                     ),
                   ),
@@ -243,22 +245,22 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
             )
           else if (nextLevelConfig == null)
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.green[50],
                 border: Border.all(color: Colors.green[300]!),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.star, color: Colors.amber),
-                  const SizedBox(width: 12),
+                  const Icon(Icons.star, color: Colors.amber, size: 20),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'You\'ve mastered all levels! 🎉',
                       style: TextStyle(
                         color: Colors.green[900],
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -284,7 +286,7 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
           : () => _showLockedMessage(levelConfig.level),
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: isLarge ? const EdgeInsets.all(24) : const EdgeInsets.all(12),
+        padding: isLarge ? const EdgeInsets.all(16) : const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
@@ -308,55 +310,56 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
                 children: [
                   // Emoji or lock icon
                   if (!isUnlocked)
-                    const Icon(Icons.lock, size: 48, color: Colors.grey)
+                    const Icon(Icons.lock, size: 36, color: Colors.grey)
                   else if (isCompleted)
-                    const Icon(Icons.check_circle, size: 48, color: Colors.green)
+                    const Icon(Icons.check_circle, size: 36, color: Colors.green)
                   else
-                    Text(levelConfig.emoji, style: const TextStyle(fontSize: 48)),
+                    Text(levelConfig.emoji, style: const TextStyle(fontSize: 36)),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
 
                   // Level number and title
                   Text(
                     '${levelConfig.level}',
                     style: const TextStyle(
-                      fontSize: 32,
+                      fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Text(
                     levelConfig.displayName,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 14,
                       color: Colors.grey[600],
                     ),
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
 
                   // Grid size and word count
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.grey[100],
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Column(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
                           'Grid: ${levelConfig.gridSize}×${levelConfig.gridSize}',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             color: Colors.grey[700],
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(width: 12),
                         Text(
                           'Words: ${levelConfig.minWords}-${levelConfig.maxWords}',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             color: Colors.grey[700],
                           ),
                         ),
@@ -365,9 +368,9 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
                   ),
 
                   if (isCompleted) ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.green[100],
                         borderRadius: BorderRadius.circular(6),
@@ -375,7 +378,7 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
                       child: Text(
                         'Completed',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: Colors.green[700],
                         ),

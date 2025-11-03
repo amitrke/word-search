@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:confetti/confetti.dart';
+import 'dart:math';
 import '../models/puzzle.dart';
 import '../models/user_profile.dart';
 import '../providers/auth_provider.dart';
@@ -28,11 +30,19 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   final List<Map<String, int>> selectedPath = [];
   bool isDragging = false;
   Map<String, int>? _dragStartCell; // Store the starting cell of drag
+  late ConfettiController _confettiController;
 
   @override
   void initState() {
     super.initState();
+    _confettiController = ConfettiController(duration: const Duration(seconds: 3));
     _loadProgress();
+  }
+
+  @override
+  void dispose() {
+    _confettiController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProgress() async {
@@ -104,38 +114,48 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
         ),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final screenWidth = MediaQuery.of(context).size.width;
-          final screenHeight = MediaQuery.of(context).size.height;
-          final appBarHeight = MediaQuery.of(context).padding.top + 56; // Status bar + AppBar
-          final availableHeight = screenHeight - appBarHeight;
+      body: Stack(
+        children: [
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  // Puzzle Grid
+                  _buildGrid(),
+                  const SizedBox(height: 24),
 
-          // For web and tablets, constrain grid size to fit in viewport
-          final isWideScreen = screenWidth > 600;
-          final maxGridHeight = isWideScreen ? availableHeight * 0.7 : availableHeight * 0.5;
+                  // Progress indicator
+                  _buildProgress(),
+                  const SizedBox(height: 16),
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                // Puzzle Grid with constrained height
-                SizedBox(
-                  height: maxGridHeight,
-                  child: _buildGrid(),
-                ),
-                const SizedBox(height: 24),
-
-                // Progress indicator
-                _buildProgress(),
-                const SizedBox(height: 16),
-
-                // Word List
-                _buildWordList(),
+                  // Word List
+                  _buildWordList(),
+                ],
+              ),
+            ),
+          ),
+          // Confetti overlay
+          Align(
+            alignment: Alignment.topCenter,
+            child: ConfettiWidget(
+              confettiController: _confettiController,
+              blastDirection: pi / 2, // down
+              emissionFrequency: 0.05,
+              numberOfParticles: 20,
+              gravity: 0.3,
+              shouldLoop: false,
+              colors: const [
+                Colors.green,
+                Colors.blue,
+                Colors.pink,
+                Colors.orange,
+                Colors.purple,
+                Colors.amber,
               ],
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -144,123 +164,116 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
     final grid2D = widget.puzzle.grid2D;
     final screenWidth = MediaQuery.of(context).size.width;
     final gridWidth = screenWidth - 32; // Account for padding
+    final size = gridWidth;
+    final cellSize = size / widget.puzzle.gridSize;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Use the constrained width from parent SizedBox
-        final availableSize = constraints.maxHeight;
-        final size = gridWidth < availableSize ? gridWidth : availableSize;
-        final cellSize = size / widget.puzzle.gridSize;
+    return Center(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[300]!, width: 2),
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: GestureDetector(
+            onPanStart: (details) {
+              final row = (details.localPosition.dy / cellSize).floor();
+              final col = (details.localPosition.dx / cellSize).floor();
 
-        return Center(
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!, width: 2),
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.white,
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: GestureDetector(
-                onPanStart: (details) {
-                  final row = (details.localPosition.dy / cellSize).floor();
-                  final col = (details.localPosition.dx / cellSize).floor();
+              if (row >= 0 && row < widget.puzzle.gridSize &&
+                  col >= 0 && col < widget.puzzle.gridSize) {
+                setState(() {
+                  isDragging = true;
+                  _dragStartCell = {'row': row, 'col': col};
+                  selectedCells.clear();
+                  selectedPath.clear();
 
-                  if (row >= 0 && row < widget.puzzle.gridSize &&
-                      col >= 0 && col < widget.puzzle.gridSize) {
-                    setState(() {
-                      isDragging = true;
-                      _dragStartCell = {'row': row, 'col': col};
-                      selectedCells.clear();
-                      selectedPath.clear();
+                  // Add start cell
+                  selectedCells.add('$row,$col');
+                  selectedPath.add({'row': row, 'col': col});
+                });
+              }
+            },
+            onPanUpdate: (details) {
+              if (isDragging && _dragStartCell != null) {
+                setState(() {
+                  _updateSelectionAlongLine(details.localPosition, cellSize);
+                });
+              }
+            },
+            onPanEnd: (details) {
+              setState(() {
+                isDragging = false;
+                _dragStartCell = null;
+              });
+              _checkSelectedWord();
+            },
+            child: Stack(
+              children: [
+                // Grid
+                GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: widget.puzzle.gridSize,
+                  ),
+                  itemCount: widget.puzzle.gridSize * widget.puzzle.gridSize,
+                  itemBuilder: (context, index) {
+                    final row = index ~/ widget.puzzle.gridSize;
+                    final col = index % widget.puzzle.gridSize;
+                    final letter = grid2D[row][col];
+                    final cellKey = '$row,$col';
+                    final isSelected = selectedCells.contains(cellKey);
 
-                      // Add start cell
-                      selectedCells.add('$row,$col');
-                      selectedPath.add({'row': row, 'col': col});
-                    });
-                  }
-                },
-                onPanUpdate: (details) {
-                  if (isDragging && _dragStartCell != null) {
-                    setState(() {
-                      _updateSelectionAlongLine(details.localPosition, cellSize);
-                    });
-                  }
-                },
-                onPanEnd: (details) {
-                  setState(() {
-                    isDragging = false;
-                    _dragStartCell = null;
-                  });
-                  _checkSelectedWord();
-                },
-                child: Stack(
-                  children: [
-                    // Grid
-                    GridView.builder(
-                      physics: const NeverScrollableScrollPhysics(),
-                      padding: EdgeInsets.zero,
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: widget.puzzle.gridSize,
-                      ),
-                      itemCount: widget.puzzle.gridSize * widget.puzzle.gridSize,
-                      itemBuilder: (context, index) {
-                        final row = index ~/ widget.puzzle.gridSize;
-                        final col = index % widget.puzzle.gridSize;
-                        final letter = grid2D[row][col];
-                        final cellKey = '$row,$col';
-                        final isSelected = selectedCells.contains(cellKey);
-
-                        return Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: Colors.grey[200]!,
-                              width: 0.5,
-                            ),
-                            color: isSelected ? Colors.blue[100] : Colors.white,
-                          ),
-                          child: Center(
-                            child: Text(
-                              letter,
-                              style: TextStyle(
-                                fontSize: cellSize * 0.5,
-                                fontWeight: FontWeight.bold,
-                                color: isSelected ? Colors.blue[900] : Colors.black87,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    // Line overlay for found words
-                    Positioned.fill(
-                      child: CustomPaint(
-                        painter: WordLinePainter(
-                          foundWordPaths: foundWordPaths,
-                          cellSize: cellSize,
-                          gridSize: widget.puzzle.gridSize,
+                    return Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: Colors.grey[200]!,
+                          width: 0.5,
                         ),
+                        color: isSelected ? Colors.blue[100] : Colors.white,
                       ),
-                    ),
-                    // Selection line overlay
-                    if (isDragging && selectedPath.isNotEmpty)
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: SelectionLinePainter(
-                            selectedPath: selectedPath,
-                            cellSize: cellSize,
+                      child: Center(
+                        child: Text(
+                          letter,
+                          style: TextStyle(
+                            fontSize: cellSize * 0.5,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected ? Colors.blue[900] : Colors.black87,
                           ),
                         ),
                       ),
-                  ],
+                    );
+                  },
                 ),
-              ),
+                // Line overlay for found words
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: WordLinePainter(
+                      foundWordPaths: foundWordPaths,
+                      cellSize: cellSize,
+                      gridSize: widget.puzzle.gridSize,
+                    ),
+                  ),
+                ),
+                // Selection line overlay
+                if (isDragging && selectedPath.isNotEmpty)
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: SelectionLinePainter(
+                        selectedPath: selectedPath,
+                        cellSize: cellSize,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -590,6 +603,9 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
     final progressProvider =
         Provider.of<UserProgressProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    // Trigger confetti celebration! 🎉
+    _confettiController.play();
 
     // Mark level as completed
     final newLevelUnlocked =
