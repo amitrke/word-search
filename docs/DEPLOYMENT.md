@@ -57,9 +57,47 @@ flutterfire configure
 
 ### Step 1: Configure App Signing
 
-#### Create a Keystore
+Google Play now uses **Play App Signing** (recommended), where Google manages your app signing key securely. You only need to create an upload key.
 
-1. **Generate keystore file** (run from project root):
+#### Option A: Let Google Play Manage Signing (Recommended - Easiest!)
+
+**Benefits**:
+- Google securely manages your app signing key
+- Easier key management
+- Can request new upload key if lost
+- More secure
+
+**Setup**:
+
+1. **Build your first release WITHOUT configuring signing**:
+
+```bash
+flutter build appbundle --release
+```
+
+This will create a **debug-signed** bundle initially, which is fine for the first upload.
+
+2. **Upload to Play Console**:
+   - Go to Play Console → Your App → Release → Production
+   - Create new release
+   - Upload the AAB file
+   - Google will prompt you to **enroll in Play App Signing**
+   - Click "Continue" and Google will generate and manage the app signing key
+
+3. **Google generates an upload key for you automatically** or you can generate your own (see Option B below)
+
+4. **For future releases**, you'll need to sign with an upload key. After first upload, download the upload key from Play Console or create your own:
+   - Play Console → Setup → App Integrity → Upload key certificate
+   - Download the generated upload key OR
+   - Follow Option B to create your own
+
+> **Note**: After enrolling in Play App Signing, you MUST sign all future uploads. The first upload can be unsigned.
+
+#### Option B: Create Your Own Upload Key (Manual Setup)
+
+If you prefer to create your own upload key from the start:
+
+1. **Generate upload keystore** (run from project root):
 
 ```bash
 keytool -genkey -v -keystore C:\Users\amitr\upload-keystore.jks -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 -alias upload
@@ -78,9 +116,7 @@ keytool -genkey -v -keystore C:\Users\amitr\upload-keystore.jks -storetype JKS -
    - Store alias (`upload`)
    - Keep keystore file safe (NEVER commit to git!)
 
-#### Configure Signing in Android
-
-1. **Create key properties file**:
+4. **Configure signing in Android**:
 
 Create `android/key.properties`:
 
@@ -93,7 +129,7 @@ storeFile=C:/Users/amitr/upload-keystore.jks
 
 > **IMPORTANT**: Add `android/key.properties` to `.gitignore`!
 
-2. **Update `android/app/build.gradle`**:
+5. **Update `android/app/build.gradle`**:
 
 ```gradle
 // Add before 'android {' block
@@ -124,6 +160,14 @@ android {
     }
 }
 ```
+
+#### Important Notes on Play App Signing
+
+- **App signing key**: Managed by Google (you never see it)
+- **Upload key**: Created and managed by you (used to sign uploads)
+- If you lose your upload key, you can request a new one from Google
+- If you lose your app signing key (old method), your app is lost forever
+- **Recommendation**: Use Option A for simplicity and security
 
 ### Step 2: Update App Configuration
 
@@ -524,17 +568,25 @@ Follow semantic versioning: `MAJOR.MINOR.PATCH`
 
 ### Android Release Checklist
 
-- [ ] Keystore created and secured
-- [ ] `key.properties` configured (not in git)
+**First Release (with Play App Signing - Easiest)**
 - [ ] `applicationId` is unique
 - [ ] `versionCode` and `versionName` updated
-- [ ] App signed with release keystore
-- [ ] APK/AAB tested on physical device
+- [ ] AAB built with `flutter build appbundle --release`
 - [ ] Play Store listing complete
 - [ ] Content rating completed
 - [ ] Privacy policy URL added
 - [ ] Screenshots uploaded (phone + tablet)
 - [ ] Release notes added
+- [ ] Enrolled in Play App Signing during first upload
+
+**Subsequent Releases (after Play App Signing enrolled)**
+- [ ] Upload keystore created and secured
+- [ ] `key.properties` configured (not in git)
+- [ ] `applicationId` remains the same
+- [ ] `versionCode` and `versionName` updated
+- [ ] App signed with upload keystore
+- [ ] AAB tested if possible
+- [ ] Release notes updated
 
 ### iOS Release Checklist
 
@@ -560,6 +612,7 @@ Follow semantic versioning: `MAJOR.MINOR.PATCH`
 
 - **Flutter deployment**: https://docs.flutter.dev/deployment
 - **Google Play Console**: https://support.google.com/googleplay/android-developer
+- **Play App Signing**: https://support.google.com/googleplay/android-developer/answer/9842756
 - **App Store Connect**: https://developer.apple.com/app-store-connect/
 - **Firebase Console**: https://console.firebase.google.com
 
@@ -579,11 +632,12 @@ Follow semantic versioning: `MAJOR.MINOR.PATCH`
 
 ## Notes
 
-- **First release takes longest**: Subsequent updates are faster
-- **App review times vary**: Plan releases accordingly
-- **Keep credentials secure**: Never commit keystores or API keys
+- **First Android release is easiest**: Use Play App Signing and upload unsigned bundle
+- **App review times vary**: Plan releases accordingly (1-7 days typically)
+- **Keep credentials secure**: Never commit keystores or API keys to git
 - **Test on real devices**: Emulators don't catch all issues
 - **Monitor after release**: Watch for crashes and user feedback
 - **Update regularly**: Keep dependencies and Flutter SDK updated
+- **Google manages your signing key**: With Play App Signing, Google handles the security
 
 Good luck with your deployment!

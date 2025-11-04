@@ -10,7 +10,8 @@
       "Bash(flutter pub get:*)",
       "Bash(flutter analyze:*)",
       "Bash(flutter build:*)",
-      "Bash(firebase deploy:*)"
+      "Bash(firebase deploy:*)",
+      "Bash(dart run:*)"
     ],
     "deny": [],
     "ask": []
