@@ -1,5 +1,7 @@
 # Word Search - AI-Powered Puzzle App
 
+[Play store test link](https://play.google.com/apps/internaltest/4701732917199276346)
+
 An intelligent word search puzzle application built with Flutter and Firebase, featuring AI-generated themed puzzles with multiple difficulty levels.
 
 ## 🎯 Project Overview

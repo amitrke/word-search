@@ -203,12 +203,16 @@ android {
 
 ### Step 3: Prepare App Icons
 
-1. **Generate Android icons**:
-   - Use https://appicon.co/ or Android Studio's Image Asset Studio
-   - Required sizes: mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi
-   - Place in: `android/app/src/main/res/mipmap-*/`
+**Icons are already generated!** Your app icons have been automatically created from `docs/icon.png`.
 
-2. **Update icon reference** in `AndroidManifest.xml` if needed
+If you need to update them:
+
+```bash
+# After replacing docs/icon.png with your new icon
+dart run flutter_launcher_icons
+```
+
+See `docs/ICON_GENERATION.md` for detailed icon customization options.
 
 ### Step 4: Build Release APK/AAB
 
@@ -301,14 +305,14 @@ open ios/Runner.xcworkspace
 
 ### Step 2: Configure App Icons
 
-1. **Generate iOS icons**:
-   - Use https://appicon.co/
-   - Download iOS icon set
-   - Replace icons in `ios/Runner/Assets.xcassets/AppIcon.appiconset/`
+**Icons are already generated!** Your iOS app icons have been automatically created from `docs/icon.png`.
 
-2. **Verify in Xcode**:
-   - Assets.xcassets → AppIcon
-   - Ensure all sizes are present
+To verify in Xcode:
+1. Open `ios/Runner.xcworkspace`
+2. Navigate to Assets.xcassets → AppIcon
+3. Ensure all sizes are present (should see 21 icon files)
+
+If you need to update them, see `docs/ICON_GENERATION.md`.
 
 ### Step 3: Update Info.plist
 
@@ -557,14 +561,14 @@ Follow semantic versioning: `MAJOR.MINOR.PATCH`
 - [ ] All features tested on physical devices
 - [ ] No debug code or console logs in production
 - [ ] Privacy policy created and hosted
-- [ ] App icons generated for all sizes
+- [x] App icons generated for all sizes ✓ (already done via `docs/icon.png`)
 - [ ] Screenshots captured (Android & iOS)
 - [ ] App descriptions written
 - [ ] Keywords researched
 - [ ] Firebase configuration verified
 - [ ] Version numbers updated
 - [ ] Release notes written
-- [ ] Keystore/certificates backed up securely
+- [ ] Keystore/certificates backed up securely (only after first upload for Android)
 
 ### Android Release Checklist
 
@@ -593,7 +597,7 @@ Follow semantic versioning: `MAJOR.MINOR.PATCH`
 - [ ] Apple Developer account active
 - [ ] Bundle ID configured in Xcode
 - [ ] Team selected in signing settings
-- [ ] App icons added to Assets.xcassets
+- [x] App icons added to Assets.xcassets ✓ (already done via `docs/icon.png`)
 - [ ] Info.plist updated
 - [ ] Version and build numbers updated
 - [ ] Archive built successfully
@@ -610,6 +614,7 @@ Follow semantic versioning: `MAJOR.MINOR.PATCH`
 
 ### Documentation
 
+- **Icon Generation Guide**: See `docs/ICON_GENERATION.md` (in this repo)
 - **Flutter deployment**: https://docs.flutter.dev/deployment
 - **Google Play Console**: https://support.google.com/googleplay/android-developer
 - **Play App Signing**: https://support.google.com/googleplay/android-developer/answer/9842756

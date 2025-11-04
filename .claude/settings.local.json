@@ -11,7 +11,9 @@
       "Bash(flutter analyze:*)",
       "Bash(flutter build:*)",
       "Bash(firebase deploy:*)",
-      "Bash(dart run:*)"
+      "Bash(dart run:*)",
+      "Bash(keytool:*)",
+      "Bash(dir C:Usersamitrupload-keystore.jks)"
     ],
     "deny": [],
     "ask": []
